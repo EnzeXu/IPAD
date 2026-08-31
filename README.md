@@ -11,24 +11,13 @@ This repository provides a runnable implementation of IPAD's core discovery pipe
 
 ## Table of Contents
 
-1. [Authors](#authors)
-2. [Repository Structure](#repository-structure)
-3. [Getting Started](#getting-started)
-4. [Usage](#usage)
-5. [Citing This Work](#citing-this-work)
-6. [License](#license)
-7. [Questions](#questions)
+1. [Repository Structure](#repository-structure)
+2. [Getting Started](#getting-started)
+3. [Usage](#usage)
+4. [Citing This Work](#citing-this-work)
+5. [License](#license)
+6. [Questions](#questions)
 
----
-
-## Authors
-
-- **Enze Xu**: [exu03@wm.edu](mailto:exu03@wm.edu)
-- **Toon Tran**
-- **Hongjue Zhao**
-- **Yuchen Wang**
-- **Dr. Mengdi Huai**
-- **Dr. Huajie Shao**: [hshao@wm.edu](mailto:hshao@wm.edu)
 
 ---
 
