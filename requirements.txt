@@ -1,8 +1,8 @@
-numpy
-pandas
-findiff
+numpy==2.5.2
+pandas==3.0.5
+findiff==0.13.1
 sympy==1.10.1
-scipy
-matplotlib
-tqdm
-pytz
+scipy==1.18.1
+matplotlib==3.11.1
+tqdm==4.70.0
+pytz==2026.3.post1

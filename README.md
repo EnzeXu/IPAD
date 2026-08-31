@@ -51,7 +51,7 @@ Two folders are kept empty (via `.gitignore`) but must exist for `run.py` to wri
 
 ## Getting Started
 
-This project is developed using Python 3.9+ and is compatible with macOS, Linux, and Windows.
+This project requires Python 3.12+ (pinned dependency versions in `requirements.txt` need it) and is compatible with macOS, Linux, and Windows.
 
 1. **Clone the repository**:
    ```bash

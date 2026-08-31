@@ -3,7 +3,11 @@ from math import sqrt, pi
 import numpy as np
 from numpy import ndarray, newaxis
 
-from scipy.integrate import trapz, simps
+try:
+    # scipy >= 1.14 removed trapz/simps in favor of trapezoid/simpson
+    from scipy.integrate import trapezoid as trapz, simpson as simps
+except ImportError:
+    from scipy.integrate import trapz, simps
 
 
 class VF_Loss:
