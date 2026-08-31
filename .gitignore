@@ -1,0 +1,17 @@
+venv/
+.venv/
+.idea/
+__pycache__/
+*.pyc
+.DS_Store
+*.ipynb
+
+data/*
+logs/*
+results/*
+
+outputs/*
+!outputs/.gitignore
+
+outputs_reward_his/*
+!outputs_reward_his/.gitignore
