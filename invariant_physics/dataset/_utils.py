@@ -19,8 +19,8 @@ def load_argparse(timestring=None):
     parser.add_argument(
         '--task',
         default='Lotka_Volterra',
-        type=str, choices=['Lotka_Volterra', 'Lorenz', 'SIR', 'Damped_Pendulum'],
-        help="benchmark task name, one of [Lotka_Volterra, Lorenz, SIR, Damped_Pendulum]")
+        type=str, choices=['Lotka_Volterra', 'SIR'],
+        help="benchmark task name, one of [Lotka_Volterra, SIR]")
     parser.add_argument(
         "--task_ode_num",
         type=int,
@@ -31,8 +31,8 @@ def load_argparse(timestring=None):
         type=int, help='number of environments being used for scoring, default 5')
     parser.add_argument(
         '--eta',
-        default=0.99,
-        type=float, help='eta, parsimony coefficient, default 0.99')
+        default=0.9999,
+        type=float, help='eta, parsimony coefficient, default 0.9999')
     parser.add_argument(
         '--output_dir',
         default='results',
@@ -64,7 +64,7 @@ def load_argparse(timestring=None):
     parser.add_argument(
         "--num_run",
         type=int,
-        default=1, help="Number of tests to run")
+        default=2, help="Number of tests to run")
     parser.add_argument(
         "--transplant_step",
         type=int,
@@ -77,7 +77,7 @@ def load_argparse(timestring=None):
         "--loss_func",
         type=str,
         choices=["VF", "L2"],
-        default="L2", help="loss function: L2 or VF")
+        default="VF", help="loss function: L2 or VF")
     parser.add_argument(
         '--combine_operator',
         default='average',
@@ -99,7 +99,7 @@ def load_argparse(timestring=None):
 
     parser.add_argument("--n_data_samples", type=int, default=None,
                         help="number of data samples")
-    parser.add_argument('--n_dynamic', type=str, default="150",
+    parser.add_argument('--n_dynamic', type=str, default="40/40/40/40/40",
                         help="""n_dynamic""")
     parser.add_argument("--dataset_sparse", type=str, default="sparse", choices=["sparse", "dense"], help="sparse or dense")
     parser.add_argument("--save_figure", type=int, default=0, help="save figure or not")

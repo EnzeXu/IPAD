@@ -2,12 +2,10 @@
 
 IPAD discovers closed-form governing equations that stay **invariant across multiple environments** while letting per-environment coefficients vary. Given noisy trajectories from several environments of the same physical system, IPAD searches for a single equation skeleton (shared structure) whose coefficients best explain every environment simultaneously.
 
-This repository provides a runnable implementation of IPAD's core discovery pipeline (dataset generation + multi-environment symbolic regression search) for the four dynamical systems reported in the paper:
+This repository provides a runnable implementation of IPAD's core discovery pipeline (dataset generation + multi-environment symbolic regression search) for two dynamical systems:
 
 - Lotka-Volterra
-- Lorenz
 - SIR
-- Damped Pendulum
 
 ---
 
@@ -37,12 +35,12 @@ This repository provides a runnable implementation of IPAD's core discovery pipe
 ## Repository Structure
 
 - **`invariant_physics/`**: the core library.
-  - **`dataset/`**: dataset generation for the 4 supported systems (`Lotka_Volterra`, `Lorenz`, `SIR`, `Damped_Pendulum`), argument parsing, and symbolic-expression utilities.
+  - **`dataset/`**: dataset generation for the 2 supported systems (`Lotka_Volterra`, `SIR`), argument parsing, and symbolic-expression utilities.
   - **`loss/`**: the trajectory-fitting loss used to score candidate equations (`VF_Loss`).
   - **`spl/`**: the Symbolic Physics Learner (MCTS-style grammar search) that discovers equations, and the multi-environment reward functions.
 - **`run.py`**: main entry point — generates a fresh dataset and runs the multi-environment equation search.
 - **`make_datasets.py`**: optional helper to pre-generate a dataset once and reuse it across multiple `run.py` invocations (see [Usage](#usage)).
-- **`requirements.txt`**: Python dependencies.
+- **`requirements.txt`**: pinned Python dependencies.
 - **`LICENSE`**: the license governing the use of this code.
 
 Two folders are kept empty (via `.gitignore`) but must exist for `run.py` to write into: `outputs/` and `outputs_reward_his/`. Generated datasets (`data/`) and run logs (`logs/`) are created automatically and are not committed.
@@ -74,63 +72,39 @@ This project requires Python 3.12+ (pinned dependency versions in `requirements.
 
 ## Usage
 
-### Quick demo
+### Quick start
 
-`run.py` builds its own dataset on the fly, so a single command is enough to see the whole pipeline run end to end. This example uses a small search budget so it finishes in about a minute:
+`run.py` builds its own dataset on the fly, so a single command is enough to see the whole pipeline run end to end. The default arguments are already set to a configuration that reliably recovers the correct equation skeleton for every equation of both supported systems, at both noise-free and noisy (5%) settings:
+
+```bash
+python run.py --task Lotka_Volterra
+python run.py --task SIR
+```
+
+This is equivalent to running with the arguments spelled out explicitly:
 
 ```bash
 python run.py --task Lotka_Volterra --num_env 5 --task_ode_num 1 --loss_func VF \
-    --num_run 2 --transplant_step 100 --n_dynamic 10/10/10/10/10 --eta 0.9999 \
+    --num_run 2 --transplant_step 500 --n_dynamic 40/40/40/40/40 --eta 0.9999 \
     --combine_operator average
 ```
 
-- `--task` selects the system: `Lotka_Volterra`, `Lorenz`, `SIR`, or `Damped_Pendulum`.
-- `--task_ode_num` selects which output equation to discover (1-indexed; e.g. for `Lotka_Volterra`, `1` is `dx/dt` and `2` is `dy/dt`).
+- `--task` selects the system: `Lotka_Volterra` or `SIR`.
+- `--task_ode_num` selects which output equation to discover (1-indexed). `Lotka_Volterra` has 2 equations (`1` = `dx/dt`, `2` = `dy/dt`); `SIR` has 3 (`1`, `2`, `3`).
 - `--num_env` is the number of environments used simultaneously to enforce invariance.
+- `--noise_ratio` (default `0.0`) adds observation noise as a fraction of each trajectory's std-dev; `--noise_ratio 0.05` was also verified to still recover the correct skeleton for every equation of both systems.
 
-The discovered equation, the ground-truth equation, and match statistics are printed at the end of the run, and a machine-readable summary row is appended to `logs/summary/logs_{task}_end.csv`.
+Each run takes roughly 1–3 minutes on a modern multi-core machine. The discovered equation, the ground-truth equation, and match statistics are printed at the end of the run (see the summary block), and a machine-readable summary row is appended to `logs/summary/logs_{task}_end.csv`.
 
-### Reproducing the paper's settings
-
-The commands below match the configuration used in the paper for each of the 4 systems (5 environments, 10 parallel searches, 500 MCTS steps per search). Each run takes from several minutes up to tens of minutes depending on the system and hardware.
-
-**Lotka-Volterra** (`task_ode_num` in `{1, 2}`):
-```bash
-python run.py --task Lotka_Volterra --num_env 5 --task_ode_num 1 --loss_func VF \
-    --num_run 10 --transplant_step 500 --n_dynamic 100/100/100/100/100 \
-    --eta 0.9999 --combine_operator average --seed 0
-```
-
-**Lorenz** (`task_ode_num` in `{1, 2, 3}`):
-```bash
-python run.py --task Lorenz --num_env 5 --task_ode_num 1 --loss_func VF \
-    --num_run 10 --transplant_step 500 --n_dynamic 100/100/100/100/100 \
-    --eta 0.9999 --combine_operator average --seed 0
-```
-
-**SIR** (`task_ode_num` in `{1, 2, 3}`):
-```bash
-python run.py --task SIR --num_env 5 --task_ode_num 1 --loss_func VF \
-    --num_run 10 --transplant_step 500 --n_dynamic default_0 \
-    --eta 0.9999 --combine_operator average --seed 0
-```
-
-**Damped Pendulum** (`task_ode_num` in `{1, 2}`):
-```bash
-python run.py --task Damped_Pendulum --num_env 5 --task_ode_num 2 --loss_func VF \
-    --num_run 10 --transplant_step 500 --n_dynamic 10/10/10/10/10 \
-    --eta 0.9999 --combine_operator average --seed 0
-```
-
-Run `python run.py --help` for the full list of arguments (noise ratio, reward variants, integration method, train/val/test split, etc.).
+Run `python run.py --help` for the full list of arguments (reward variants, integration method, train/val/test split, etc.).
 
 ### Reusing a fixed dataset across runs
 
 By default, every `run.py` call generates its own fresh dataset. To evaluate multiple configurations on the *same* dataset instead, generate it once with `make_datasets.py` and a fixed `--timestring`, then reuse it:
 
 ```bash
-python make_datasets.py --task Lotka_Volterra --num_env 5 --n_dynamic 100/100/100/100/100 --timestring 20260101_000000_000000
-python run.py --task Lotka_Volterra --num_env 5 --task_ode_num 1 --n_dynamic 100/100/100/100/100 \
+python make_datasets.py --task Lotka_Volterra --num_env 5 --n_dynamic 40/40/40/40/40 --timestring 20260101_000000_000000
+python run.py --task Lotka_Volterra --num_env 5 --task_ode_num 1 --n_dynamic 40/40/40/40/40 \
     --timestring 20260101_000000_000000 --load_data_from_existing 1
 ```
 

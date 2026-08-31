@@ -1,15 +1,11 @@
 from ._utils import load_argparse, print_argparse
 
 from ._lotka_volterra import LotkaVolterra
-from ._lorenz import Lorenz
 from ._sir import SIR
-from ._damped_pendulum import DampedPendulum
 
 ODE_DICT = {
     "Lotka_Volterra": LotkaVolterra,
-    "Lorenz": Lorenz,
     "SIR": SIR,
-    "Damped_Pendulum": DampedPendulum,
 }
 
 

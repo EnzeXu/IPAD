@@ -44,11 +44,6 @@ class ODEDataset:
 
     def _set_partial_param(self, params, mask):
         assert len(params) == len(mask) == self.args.num_env, f"len(params)={len(params)}, len(mask)={len(mask)}, self.args.num_env={self.args.num_env} should be the same!"
-        # For n_partial
-        if self.ode_name == "Damped_Pendulum":
-            param_idx = 1
-            for i in range(self.args.num_env):
-                params[i][param_idx] *= mask[i]
         return params
 
     def _get_ode_params_and_y0(self, num_env: int, params_strategy: str):
