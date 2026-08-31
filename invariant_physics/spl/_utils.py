@@ -23,13 +23,8 @@ def time_limit(seconds, msg=''):
     finally:
         signal.alarm(0)
 
-# Sequential approach
 def purify_strategy(eq, data, variable_list, threshold=0.05, traj_jump=20):
     # data is in shape (N, m). Here m is the dimension of the ODE system
-    # print(f"input: {eq}")
-    # print(full_terms)
-    # print(terms)
-    # print(f"data.shape: {data.shape}")
     full_terms, terms, _ = extract(eq)
 
     data_y_noise = data[0]
@@ -47,13 +42,9 @@ def purify_strategy(eq, data, variable_list, threshold=0.05, traj_jump=20):
             abs_ratio_array[i][j] = abs_value_array[i][j] / np.sum(abs_value_array[i])
     avg_ratio = np.average(abs_ratio_array, axis=0)
     purified_full_terms = [full_terms[i] for i in range(len(full_terms)) if avg_ratio[i] >= threshold]
-    # print(f"full terms: {full_terms} ratio: {avg_ratio} threshold: {threshold} purified_full_terms: {purified_full_terms}")
     purified_eq = sp.sympify(sp.Add(*purified_full_terms))
-    # print(avg_ratio)
-    # print(f"output_v20240301: {purified_eq}")
     return purified_eq, avg_ratio, full_terms, terms
 
-# parallel approach
 
 def evaluate_for_env_parallel(i, full_terms, data_y_noise, variable_list):
     abs_value_array = np.zeros(len(full_terms))
@@ -90,10 +81,3 @@ def purify_strategy_parallel(eq, data, variable_list, threshold=0.05, traj_jump=
 
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
-
-
-if __name__ == "__main__":
-    expression = "x+y+z"
-    variables = ["x", "y", "z"]
-    values = [1.1, 2.0, -1.4]
-    print(evaluate_expression(expression, variables, values))

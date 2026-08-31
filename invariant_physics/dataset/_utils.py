@@ -12,8 +12,6 @@ import json
 import argparse
 from scipy.stats import qmc
 from sympy import symbols, sympify, Mul
-from concurrent.futures import ProcessPoolExecutor
-from scipy.integrate import odeint
 from collections import Counter
 
 def load_argparse(timestring=None):
@@ -112,8 +110,6 @@ def load_argparse(timestring=None):
     parser.add_argument("--train_ratio", type=float, default=0.80, help="train_ratio")
     parser.add_argument("--test_ratio", type=float, default=0.10, help="test_ratio")
     parser.add_argument("--val_ratio", type=float, default=0.10, help="val_ratio")
-    # parser.add_argument("--dataset_sparse", type=str, default="sparse", choices=["sparse", "dense"],
-    #                     help="sparse or dense")
     parser.add_argument('--non_ode_sampling', type=str, default="random", choices=["random", "cubic"],
                         help="""non_ode_sampling""")
     parser.add_argument('--timestring', type=str, default="", help="""timestring""")
@@ -141,7 +137,6 @@ def load_argparse(timestring=None):
     parser.add_argument("--swap_n_dynamic_list", type=int, default=1,
                         help="swap_n_dynamic_list")
 
-
     args = parser.parse_args()
     assert abs(args.train_ratio + args.test_ratio + args.val_ratio - 1.00) < 1e-3, f"train_ratio ({args.train_ratio}) + test_ratio ({args.test_ratio}) + val_ratio ({args.val_ratio}) should equals to 1.0 !"
     if not args.timestring or len(args.timestring) < 1:
@@ -151,7 +146,6 @@ def load_argparse(timestring=None):
             args.timestring = timestring
     assert len(args.timestring) == 22
 
-    # args.n_data_samples_list = get_n_data_samples_list(args.n_data_samples, args.num_env, args.seed)
     args.n_dynamic_list = get_n_dynamic_list(args.n_dynamic, args.num_env, args.seed, swap_n_dynamic_list=args.swap_n_dynamic_list)
     args.partial_mask_list = get_partial_mask(args.n_partial, args.num_env, args.seed)
     return args, parser
@@ -180,7 +174,6 @@ def params_default(num_env, **kwargs):
 
 def params_random(num_env, seed_offset=0, **kwargs):
     base, random_rate, seed = kwargs["base"], kwargs["random_rate"], kwargs["seed"]
-    # params = []
     random.seed(seed + seed_offset)
     params = [round(random.uniform((1 - random_rate) * item, (1 + random_rate) * item), 7) for item in base]
     return params
@@ -215,14 +208,10 @@ def load_data(data_path):
 
 
 def get_now_string(time_string="%Y%m%d_%H%M%S_%f"):
-    # return datetime.datetime.now().strftime(time_string)
+    # Timestrings are always in US/Eastern so they sort/compare consistently across machines.
     est = pytz.timezone('America/New_York')
-
-    # Get the current time in UTC and convert it to EST
     utc_now = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
     est_now = utc_now.astimezone(est)
-
-    # Return the time in the desired format
     return est_now.strftime(time_string)
 
 
@@ -246,14 +235,10 @@ def extract(expression):
     """
     expr = sp.sympify(expression)
     raw_terms = list(sp.Add.make_args(expr))
-    # print(raw_terms)
     result = []
 
     for term in raw_terms:
         term = sp.sympify(term)
-        # if is_term_constant(term):
-        #     continue
-        # print(sp.Mul.make_args(term))
         coefficient_list = []
         non_coefficient_list = []
         for factor in sp.Mul.make_args(term):
@@ -261,7 +246,6 @@ def extract(expression):
                 coefficient_list.append(factor)
             else:
                 non_coefficient_list.append(factor)
-            # print(f"{factor}: {is_term_constant(factor)}")
         coefficient_part = sp.sympify(sp.Mul(*[sp.sympify(item) for item in coefficient_list]))
         non_coefficient_part = sp.sympify(sp.Mul(*[sp.sympify(item) for item in non_coefficient_list]))
         result.append([term, non_coefficient_part, coefficient_part])
@@ -272,40 +256,18 @@ def extract(expression):
     coefficient_terms = [item[2] for item in result]
     return full_terms, terms, coefficient_terms
 
-# Sequential approach
 def evaluate_expression(expression_str, variable_list, variable_values):
-    # print("debug:", expression_str, variable_list, variable_values, f"variable_values shape:{variable_values.shape}")
     variables = symbols(variable_list)
     expr = sympify(expression_str)
     results = []
     for values in variable_values:
-        # variable_dict = {var: val for var, val in zip(variables, values)}
         variable_dict = {var: float(val) if isinstance(val, np.float64) else val for var, val in
                          zip(variables, values)}
         result = expr.subs(variable_dict).evalf()
         results.append(result)
     results = np.array(results, dtype=float)
-    # variable_dict = {var: val for var, val in zip(variables, variable_values)}
-    # result = expr.subs(variable_dict)
-    # result_value = result.evalf()
-    # return result_value
-    # print("one evaluate_expression finished")
     return np.mean(results)
 
-
-# Parallel approach
-# def evaluate_expression(expression_str, variable_list, variable_values):
-#     variables = symbols(variable_list)
-#     expr = sympify(expression_str)
-#
-#     def evaluate_single(values):
-#         variable_dict = {var: val for var, val in zip(variables, values)}
-#         return expr.subs(variable_dict).evalf()
-#
-#     with ProcessPoolExecutor() as executor:
-#         results = list(executor.map(evaluate_single, variable_values))
-#     print("one evaluate_expression finished")
-#     return np.mean(results)
 
 def remove_constant(one_list):
     return [item for item in one_list if item != "1"]
@@ -377,13 +339,9 @@ def evaluate_eq_into_value(eq_str, curve_names, data_points):
     eval_context = {'np': np}
     for i_dynamic in range(n_dynamic):
         for i, point in enumerate(data_points[i_dynamic]):
-            # print(f"curve_names: {curve_names}")
-            # print(f"point: {point}")
             var_values = {var_name: value for var_name, value in zip(curve_names, point)}
             try:
                 var_values.update(eval_context)
-                # print(f"math_enc(eq_str): {math_enc(eq_str)}")
-                # print(f"var_values: {var_values}")
                 result = eval(math_enc(eq_str), {"__builtins__": None}, var_values)
             except Exception as e:
                 print(f"Error in {math_enc(eq_str)}:", e)
@@ -392,12 +350,9 @@ def evaluate_eq_into_value(eq_str, curve_names, data_points):
 
 
 def evaluate_trajectory_rmse(ode, eq_str, i_env, task_ode_num):
-    # data_points = ode.y_noise[i_env][ode.test_indices_list[i_env]]
     data_points = ode.y_noise[i_env]
     dy_prediction = evaluate_eq_into_value(eq_str, ode.params_config["curve_names"], data_points)
-    # dy_truth = ode.dy_noise[i_env][ode.test_indices_list[i_env], task_ode_num - 1]
     dy_truth = ode.dy_noise[i_env][:, :, task_ode_num - 1]
-    # print(f"dy_prediction shape: {dy_prediction.shape} dy_truth shape: {dy_truth.shape}")
     assert dy_prediction.shape == dy_truth.shape
     mse = np.mean((dy_prediction - dy_truth) ** 2)
     rmse = np.sqrt(mse)
@@ -406,72 +361,6 @@ def evaluate_trajectory_rmse(ode, eq_str, i_env, task_ode_num):
     relative_mse = mse / variance if variance != 0 else float('inf')
     relative_rmse = rmse / std_deviation if std_deviation != 0 else float('inf')
     return mse, rmse, relative_mse, relative_rmse
-
-
-# def get_n_data_samples_list(n_data_samples: str, num_env: int, seed=None):
-#     """
-#     Args:
-#         n_data_samples: supports three types of argument:
-#             (1) one integer, like 500, indicating it's a balanced dataset;
-#             (2) integers split by "/", like 500/400/300/200/100. There would be an error if its length mismatches the num_env;
-#             (3) a string "default_x", following a built-in dict as below.
-#         num_env: an integer, number of environment
-#         seed: an integer for generating random ordering list
-#     Returns:
-#         a list of environment size, e.g., [500, 400, 300, 200, 100].
-#     """
-#     default_dic = {
-#         "default_0": "500/500/500/500/500",
-#         "default_1": "20/20/20/20/20",
-#         "default_2": "100/100/100/100/100",
-#         "default_3": "500/400/40/20/10",
-#         "default_4": "500/80/40/20/10",
-#         "default_5": "100/50/50/20/10",
-#         "default_6": "500/400/300/200/100",
-#         "default_7": "500/400/300/200/10",
-#         "default_8": "500/400/300/20/10",
-#         "default_10": "200/200/200/200/200",
-#         "default_11": "500/400/40/40/20",
-#         "default_12": "500/200/200/50/50",
-#         "default_13": "500/125/125/125/125",
-#         "default_15": "1000/1000/1000/1000/1000",
-#         "default_16": "900/900/900/900/900",
-#         "default_17": "800/800/800/800/800",
-#         "default_18": "700/700/700/700/700",
-#         "default_19": "600/600/600/600/600",
-#         "default_20": "500/500/500/500/500",
-#         "default_21": "400/400/400/400/400",
-#         "default_22": "300/300/300/300/300",
-#         "default_30": "25/25/25/25/25",
-#         "default_31": "50/50/50/50/50",
-#         "default_32": "75/75/75/75/75",
-#         "default_33": "100/100/100/100/100",
-#         "default_34": "200/200/200/200/200",
-#         "default_35": "500/500/500/500/500",
-#         "default_36": "400/400/400/400/400",
-#         "default_37": "800/800/800/800/800",
-#         "default_38": "1600/1600/1600/1600/1600",
-#         "default_41": "400/400/400/400/400",
-#         "default_43": "1600/1600/1600/1600/1600",
-#         "default_45": "6400/6400/6400/6400/6400",
-#         "default_47": "25600/25600/25600/25600/25600",
-#     }
-#
-#     if n_data_samples.isdigit():
-#         n_data_samples_list = [int(n_data_samples) for i in range(num_env)]
-#     else:
-#         if "/" not in n_data_samples:
-#             assert n_data_samples in default_dic, "Error: key error in get_n_data_samples_list: " + str(n_data_samples)
-#             string = default_dic[n_data_samples]
-#         else:
-#             string = n_data_samples
-#         parts = string.split("/")
-#         n_data_samples_list = [int(item) for item in parts]
-#     assert len(n_data_samples_list) == num_env, "Error: mismatching between " + str(n_data_samples) + " and " + str(num_env)
-#     one_order = generate_random_order(num_env, seed)
-#     n_data_samples_list_swapped = reseat(n_data_samples_list, one_order)
-#     print(f"Swap n_data_samples size: {n_data_samples_list} -> {n_data_samples_list_swapped}")
-#     return n_data_samples_list_swapped
 
 
 def get_n_dynamic_list(n_dynamic: str, num_env: int, seed=None, swap_n_dynamic_list=1):
@@ -508,7 +397,6 @@ def get_n_dynamic_list(n_dynamic: str, num_env: int, seed=None, swap_n_dynamic_l
         n_dynamic_list_swapped = reseat(n_dynamic_list, one_order)
     else:
         n_dynamic_list_swapped = n_dynamic_list
-    # print(f"Swap n_dynamic size: {n_dynamic_list} -> {n_dynamic_list_swapped}")
     return n_dynamic_list_swapped
 
 def get_partial_mask(n_partial: int, num_env: int, seed=None):
@@ -542,7 +430,6 @@ def calculate_parameter_rmse(eq_list_1, eq_list_2):
     for eq_id in range(n):
         full_terms1, terms1, coefficient_terms1 = extract(eq_list_1[eq_id])
         full_terms2, terms2, coefficient_terms2 = extract(eq_list_2[eq_id])
-        # print(f"coefficient_terms1={coefficient_terms1}, coefficient_terms2={coefficient_terms2}")
         one_rmse = rmse(coefficient_terms1, coefficient_terms2)
         print(f"calculate_parameter_rmse: (truth) {coefficient_terms1} vs. (prediction) {coefficient_terms2}: rmse={one_rmse:.6f}")
         sum_rmse += one_rmse
@@ -554,38 +441,6 @@ def calculate_parameter_rmse(eq_list_1, eq_list_2):
 def rmse(list1, list2):
     residual = np.asarray(list1).astype(float) - np.asarray(list2).astype(float)
     return np.sqrt(np.sum(residual ** 2))
-
-
-# def simplify_and_replace_constants(expr_str):
-#     """
-#     e.g.
-#     Args:
-#         expr_str:
-#
-#     Returns:
-#
-#     """
-#     # Define the symbols
-#     # x, y = sp.symbols('x y')
-#     C = sp.Symbol('C')
-#
-#
-#     # Parse the expression into a SymPy expression
-#     parsed_expr = sp.sympify(expr_str)
-#
-#     # Simplify the expression
-#     simplified_expr = parsed_expr
-#     # print(f"simplified_expr: {simplified_expr}")
-#
-#     # Find all constants in the expression
-#     constants = [term for term in simplified_expr.atoms(sp.Number)]
-#     # print(constants)
-#
-#     # Replace each constant with 'C'
-#     for const in constants:
-#         simplified_expr = simplified_expr.subs(const, C)
-#
-#     return str(simplified_expr)
 
 
 def most_common(lst):
@@ -635,8 +490,6 @@ def generate_ordered_indices(total_size, train_size, val_size, test_size):
 
 
 def judge_expression_equal(str1, str2):
-    # print(f"str1 = {str1}")
-    # print(f"str2 = {str2}")
     str1 = str1.replace("C", "1")
     str2 = str2.replace("C", "1")
     full_terms1, terms1, coefficient_terms1 = extract(str1)
@@ -649,8 +502,6 @@ def judge_expression_equal(str1, str2):
     if one_term in terms2:
         terms2.remove(one_term)
 
-    # print(full_terms1, terms1, coefficient_terms1)
-    # print(full_terms2, terms2, coefficient_terms2)
 
     return int(str(terms1) == str(terms2))
 
@@ -663,7 +514,6 @@ def generate_record_csv(ode_name):
     df = df[["start_time", "n_dynamic", "noise_ratio", "task_ode_num", "env_id", "seed"]]
     df = df.sort_values(by=["n_dynamic", "noise_ratio", "task_ode_num", "env_id", "seed"])
     df = df.reset_index(drop=True)
-    # print(df)
     return df
 
 
@@ -687,74 +537,10 @@ def check_existing_record(task_date, ode_name, n_dynamic, noise_ratio, task_ode_
         (df['env_id'].astype(int) == int(env_id)) &
         (df['seed'].astype(int) == int(seed))
         ]
-    # print(len(df))
     if len(df) >= 1:
         return True
     return False
 
 
 if __name__ == "__main__":
-
-
-    result1 = judge_expression_equal("C*x*y + C*x", "C*x*y + x")
-    result2 = judge_expression_equal("C*sin(x) + C*y", "C*sin(C*x) + C*y")
-    result3 = judge_expression_equal("C*x*y + C*x", "C*x*y + x + C")
-    result4 = judge_expression_equal("C*x*y + C*x", "C+x+C*x*y")
-
-    print(result1)
-    print(result2)
-    print(result3)
-
-    # print(simplify_and_replace_constants("-8.7 / 1.5 * sin(x) - 1.1 * y"))
-    # print(simplify_and_replace_constants("-8.7 / 1.5 * sin(x) - 1.1 * y ** 2"))
-
-    # print(most_common(["a", 1, "a", "b", "b", 123, 2.31]))
-
-
-    # eq_list_1 =  ['1.0*x-0.3*x*y', '1.2*x-0.39*x*y', '1.3*x-0.42*x*y', '1.1*x-0.51*x*y', '0.9*x-0.39*x*y']
-    #
-    # eq_list_2 = ['-0.299953343018*x*y + 0.999846119139*x', '-0.389932529684*x*y + 1.199794591706*x', '-0.419885185789*x*y + 1.299649068268*x', '-0.509905116574*x*y + 1.099800403716*x', '-0.389934487886*x*y + 0.899851398684*x']
-    #
-    #
-    # print(calculate_parameter_rmse(eq_list_1, eq_list_2))
-    #
-    # print(rmse([9.81000000000000], [9.81000000000000]))
-
-
-    # get_train_test_total_list("default_1", 5)
-    # numbers = [10,20,30,0,50]
-    # order = generate_random_order(5, 500)
-    # print(order)
-    # print(reseat(numbers, order))
-    # a = " -0.389927009553766*x*y + 1.1997924353311362*x"
-    # a = "-1/(5*x + 1) * (1+2*x) - 1*x*(1-y)"
-    # print(transform_sympy(a))
-    # a = {
-    #     "1": {
-    #         "purified_predicted_terms": "aaaa"
-    #     },
-    #     "2": {
-    #         "purified_predicted_terms": "bbb"
-    #     },
-    #     "3": {
-    #         "purified_predicted_terms": "aaaa"
-    #     },
-    #     "4": {
-    #         "purified_predicted_terms": "c"
-    #     },
-    # }
-    # print(determine_most_frequent_terms(a))
-
-    # expression = "x+y+z"
-    # variables = ["x", "y", "z"]
-    # values = [1.1, 2.0, -1.4]
-    # print(evaluate_expression(expression, variables, values))
-
-    # expr1 = "3*y+2*sin(x)-3*x**2+2.1*x*y"
-    # expr2 = "15*x**2*y/(x + 1) - 13*x*2.0*y/(x + 25) + 5.1*x/(x + 5.0)"
-    # parts = extract(expr1)
-    # print(parts)
-    # # print(score_match_terms(parts[1], parts[1]))
-    # print(get_partial_mask(3, 5, 888))
-
     pass

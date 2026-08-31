@@ -181,7 +181,6 @@ def preprocess_exp(exp):
         return exp
         
 def to_prod(exp, ntn, terminal_rules, nt_rules): # False if not possible, prods otherwise   
-#     print(ast.unparse(exp), ntn)
     if isinstance(exp, ast.Expression):
         return to_prod(exp.body, ntn, terminal_rules, nt_rules)
     
@@ -190,7 +189,6 @@ def to_prod(exp, ntn, terminal_rules, nt_rules): # False if not possible, prods 
         if ntn != r[:r.find("->")]:
             continue
         exp_r = ast.parse(r[r.find("->")+2:], "", "eval").body
-#         print(ast.unparse(exp), exp_r, r)
         if is_equal(exp, exp_r):
             return [r]
     
@@ -203,8 +201,6 @@ def to_prod(exp, ntn, terminal_rules, nt_rules): # False if not possible, prods 
         exp_temp_string = "".join(ast.unparse(exp_temp).split(" ")) # A[op]A
         op = exp_temp_string[1:-1]
         ntrs = [r for r in nt_rules if op in r[r.find("->")+2:] and ntn == r[:r.find("->")]]
-#         print(ntrs, op)
-#         raise
         # check if left or right is constant (ntrs restricted to single op)
         # check if left or right is Name
         if isinstance(exp.left, ast.Constant):
@@ -277,7 +273,6 @@ def to_prod(exp, ntn, terminal_rules, nt_rules): # False if not possible, prods 
         for ntr in ntrs_ntn_only:
             ntn_two = ntr[ntr.find("->")+2:].replace('(', '')\
                                                         .replace(')', '').split(op)
-#             print(ntr, ntn_two)
             left_ntn, right_ntn = ntn_two
             left, right = to_prod(exp.left, left_ntn, terminal_rules, nt_rules), \
                           to_prod(exp.right, right_ntn, terminal_rules, nt_rules)
@@ -289,55 +284,17 @@ def to_prod(exp, ntn, terminal_rules, nt_rules): # False if not possible, prods 
         if left and right and left != False and right != False:
             return [ntr] + left + right 
         elif is_simple(exp.left) and is_simple(exp.right):
-#             print(f"Recommend adding: {ntn}->{ast.unparse(exp).replace(' ', '')}")
             return [f"{ntn}-&>({ast.unparse(exp).replace(' ', '')})"]
         else:
             pass
     elif isinstance(exp, ast.Call):
-        # check id only (restricted to one function / no op allowed in arguments)
-#         print(ast.unparse(exp))
+        # calls (e.g. sin(...)) are not supported by this reconstruction path
         raise NotImplementedError
-        # need terminal symbols
-#         ntrs = [r for r in nt_rules if exp.func.id in r[r.find("->")+2:] and ntn == r[:r.find("->")]]
-#         args = exp.args
-#         ntns = get_nonterminal_symbols(terminal_rules + nt_rules)
-#         for r in ntrs:
-#             # TODO: change the above to this format
-# #             print(r[r.find("->")+2:])
-#             exp_r = ast.parse(r[r.find("->")+2:]).body
-#             if len(exp_r) != 1:
-#                 raise Exception("What? Exp_r is", ast.dump(exp_r))
-#             else:
-#                 exp_r = exp_r[0].value
-# #             print(ast.dump(exp_r.value))
-#             print([ast.dump(a) for a in exp_r.args])
-# #             raise
-#             for arg, r_arg in zip(arg, exp_r.args):
-#                 if r_arg.id in ntns:
-#                     pass
-#                 elif r_arg
-#                 to_prod(arg, ntn, terminal_rules, nt_rules)
-#         if exp.func.id == exp_rule.func.id:
-#             return all([is_equal(arg, arg_rule) for arg, arg_rule in zip(exp.args, exp_rule.args)])
-#         return False
-#     elif isinstance(exp, ast.Name):
-#         pass
-#     elif isinstance(exp, ast.Constant):
-#         pass
     elif isinstance(exp, ast.Constant):
-#         print(f"Recommend adding: {ntn}->C")
         return [f"{ntn}-&>C"]
     else:
         print("Unrecognized expression", ast.dump(exp))
         return False
-        
-#     print("Asdf")
-#     ntns = get_nonterminal_symbols(terminal_rules + nt_rules)
-#     for n in ntns:
-#         if n in ast.unparse(exp):
-#             return False
-#     print(f"Recommend add {ntn}->{ast.unparse(exp).replace(' ', '')}")
-#     return [f"{ntn}-&>({ast.unparse(exp).replace(' ', '')})"]
     return False
 
 
@@ -351,8 +308,6 @@ def to_common_simplified_skeleton(spl_model, func_score, best_module, data_list)
     train_score_rmse_only, eqs = func_score(spl_model.tree_to_eq(['f->A'] + best_module[0].split(',')), 
                                                        0, data_list)
     simplified_eq = max(simplify_eqs(eqs), key=lambda x: len(x))
-#     prods_list = []
-#     for eq in simplify_eqs(best_module[2]):
     exp = ast.parse(simplified_eq, "", "eval")
     exp = preprocess_exp(exp)
     prods = to_prod(exp, 'A', t_rules, nt_rules)
