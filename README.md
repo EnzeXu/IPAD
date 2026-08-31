@@ -1,11 +1,8 @@
 # IPAD
 
-IPAD discovers closed-form governing equations that stay **invariant across multiple environments** while letting per-environment coefficients vary. Given noisy trajectories from several environments of the same physical system, IPAD searches for a single equation skeleton (shared structure) whose coefficients best explain every environment simultaneously.
+IPAD (**I**nvariant **P**hysic**A**l **D**ynamics identification framework) discovers the closed-form governing equations that stay **invariant across multiple environments**, while letting per-environment parameters vary — e.g., a car's acceleration always obeys the same form of Newton's second law, even though the friction term differs from one road condition to the next. Given noisy, imbalanced trajectory data collected from several environments of the same physical system, IPAD uses Monte Carlo Tree Search together with a multi-environment reward to jointly search for a single equation skeleton and per-environment coefficients that best explain every environment at once. A variational-formulation (VF) loss sidesteps the numerical-differentiation errors that noisy observations otherwise introduce, and a post-hoc purification step prunes spurious near-zero terms from the discovered equations.
 
-This repository provides a runnable implementation of IPAD's core discovery pipeline (dataset generation + multi-environment symbolic regression search) for two dynamical systems:
-
-- Lotka-Volterra
-- SIR
+This repository provides a runnable implementation of IPAD's core discovery pipeline (dataset generation + multi-environment symbolic regression search) for dynamical systems.
 
 ---
 
